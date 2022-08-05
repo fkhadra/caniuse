@@ -4,7 +4,7 @@ import "github.com/charmbracelet/lipgloss"
 
 var (
 	ErrorColor     = lipgloss.AdaptiveColor{Light: "#F23D5C", Dark: "#F23D5C"}
-	SuccessColor   = lipgloss.AdaptiveColor{Light: "#3DF222", Dark: "#3DF222"}
+	SuccessColor   = lipgloss.AdaptiveColor{Light: "#00A300", Dark: "#00A300"}
 	WarningColor   = lipgloss.AdaptiveColor{Light: "#f1c40f", Dark: "#f1c40f"}
 	InfoColor      = lipgloss.AdaptiveColor{Light: "#3498db", Dark: "#3498db"}
 	NeutralColor   = lipgloss.AdaptiveColor{Light: "#969B86", Dark: "#696969"}
@@ -16,12 +16,13 @@ var (
 
 	Text           = lipgloss.NewStyle().Bold(true)
 	TextInfo       = Text.Copy().Foreground(InfoColor)
+	TextWarning    = Text.Copy().Foreground(WarningColor)
 	TextError      = Text.Copy().Foreground(ErrorColor)
 	TextSuccess    = Text.Copy().Foreground(SuccessColor)
 	TextHightlight = Text.Copy().Foreground(HighlightColor)
 
 	Badge = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#1a1a1a")).
+		Foreground(lipgloss.Color("#fffff1")).
 		Bold(true).
 		Padding(0, 1, 0, 1)
 	BadgeSuccess = Badge.Copy().Background(SuccessColor)
