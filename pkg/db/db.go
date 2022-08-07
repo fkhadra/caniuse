@@ -3,27 +3,82 @@ package db
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path"
+	"strings"
 	"syscall"
 )
 
-type ApiLink struct {
-	URL   string `json:"url"`
-	Title string `json:"title"`
+type BrowserId string
+
+type BrowserSupport [][2]string
+
+func (b *BrowserSupport) UnmarshalJSON(data []byte) error {
+	var (
+		startVersion, prevSupport, prevVersion string
+		out                                    [][2]string
+	)
+
+	input := strings.Split(
+		strings.ReplaceAll(
+			// remove curly braces from original string
+			string(data[1:len(data)-1]),
+			"\"", ""),
+		",")
+
+	for i, v := range input {
+		var versionRange string
+		isLastEntry := i == len(input)-1
+		current := strings.Split(v, ":")
+		version, support := strings.TrimSpace(current[0]), strings.TrimSpace(current[1])
+
+		// first entry
+		if startVersion == "" {
+			startVersion = version
+		} else if isLastEntry {
+			if prevSupport != support {
+				versionRange = fmt.Sprintf("%s-%s", startVersion, prevVersion)
+				out = append(out,
+					[2]string{versionRange, prevSupport},
+					[2]string{version, support},
+				)
+			} else {
+				versionRange = fmt.Sprintf("%s-%s", startVersion, version)
+				out = append(out, [2]string{versionRange, support})
+			}
+		} else if prevSupport != "" && prevSupport != support {
+			if startVersion == prevVersion {
+				versionRange = startVersion
+			} else {
+				versionRange = fmt.Sprintf("%s-%s", startVersion, prevVersion)
+			}
+			out = append(out, [2]string{versionRange, prevSupport})
+			startVersion = version
+		}
+		prevVersion = version
+		prevSupport = support
+	}
+
+	*b = out
+
+	return nil
 }
 
 type Api struct {
-	Title       string                       `json:"title"`
-	Description string                       `json:"description"`
-	Spec        string                       `json:"spec"`
-	Status      string                       `json:"status"`
-	Links       []ApiLink                    `json:"links"`
-	Categories  []string                     `json:"categories"`
-	Stats       map[string]map[string]string `json:"stats"`
-	Usage       float64                      `json:"usage_perc_y"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Spec        string `json:"spec"`
+	Status      string `json:"status"`
+	Links       []struct {
+		URL   string `json:"url"`
+		Title string `json:"title"`
+	} `json:"links"`
+	Categories []string                     `json:"categories"`
+	Support    map[BrowserId]BrowserSupport `json:"stats"`
+	Usage      float64                      `json:"usage_perc_y"`
 }
 
 type BrowserInfo struct {
@@ -36,21 +91,21 @@ type BrowserInfo struct {
 }
 
 type Db struct {
-	Browser map[string]BrowserInfo `json:"agents"`
-	Api     map[string]Api         `json:"data"`
-	Updated int                    `json:"updated"`
+	Browser map[BrowserId]BrowserInfo `json:"agents"`
+	Api     map[string]Api            `json:"data"`
+	Updated int                       `json:"updated"`
 }
 
 const Url = "https://raw.githubusercontent.com/Fyrd/caniuse/main/data.json"
 
-var (
-	DefaultConfigDir = func() string {
-		homedir, _ := os.UserHomeDir()
-		return path.Join(homedir, ".config/caniuse")
-	}()
+func DefaultConfigDir() string {
+	homedir, _ := os.UserHomeDir()
+	return path.Join(homedir, ".config/caniuse")
+}
 
-	DefaultDbPathname = path.Join(DefaultConfigDir, "data.json")
-)
+func DefaultDbPathname() string {
+	return path.Join(DefaultConfigDir(), "data.json")
+}
 
 func Init() (db Db, err error) {
 	if err = os.MkdirAll(DefaultConfigDir, 0755); err != nil {
@@ -87,10 +142,12 @@ func (d Db) CheckForUpdate() (updated bool, err error) {
 	}
 
 	if maybeNewDb.Updated > d.Updated {
-		if err = os.Rename(dbPathname, DefaultDbPathname); err != nil {
+		if err = os.Rename(dbPathname, DefaultDbPathname()); err != nil {
 			return
 		}
 		updated = true
+	} else {
+		os.Remove(dbPathname)
 	}
 
 	return
