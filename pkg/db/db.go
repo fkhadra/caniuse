@@ -108,19 +108,19 @@ func DefaultDbPathname() string {
 }
 
 func Init() (db Db, err error) {
-	if err = os.MkdirAll(DefaultConfigDir, 0755); err != nil {
+	if err = os.MkdirAll(DefaultConfigDir(), 0755); err != nil {
 		return
 	}
 
-	db, err = load(DefaultDbPathname)
+	db, err = load(DefaultDbPathname())
 
 	if err != nil && errors.Is(err, syscall.ENOENT) {
 		// db does not exist, let's get it
-		if err = download(DefaultDbPathname); err != nil {
+		if err = download(DefaultDbPathname()); err != nil {
 			return
 		}
 		// load db again
-		if db, err = load(DefaultDbPathname); err != nil {
+		if db, err = load(DefaultDbPathname()); err != nil {
 			//something is really wrong
 			return
 		}
