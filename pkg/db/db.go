@@ -16,6 +16,7 @@ type BrowserId string
 
 type BrowserSupport [][2]string
 
+// aggregate data while unmarshalling
 func (b *BrowserSupport) UnmarshalJSON(data []byte) error {
 	var (
 		startVersion, prevSupport, prevVersion string
@@ -35,8 +36,11 @@ func (b *BrowserSupport) UnmarshalJSON(data []byte) error {
 		current := strings.Split(v, ":")
 		version, support := strings.TrimSpace(current[0]), strings.TrimSpace(current[1])
 
-		// first entry
-		if startVersion == "" {
+		if startVersion == "" && isLastEntry {
+			out = append(out,
+				[2]string{version, support},
+			)
+		} else if startVersion == "" {
 			startVersion = version
 		} else if isLastEntry {
 			if prevSupport != support {
@@ -78,6 +82,7 @@ type Api struct {
 	} `json:"links"`
 	Categories []string                     `json:"categories"`
 	Support    map[BrowserId]BrowserSupport `json:"stats"`
+	Notes      map[string]string            `json:"notes_by_num"`
 	Usage      float64                      `json:"usage_perc_y"`
 }
 

@@ -1,8 +1,8 @@
 package db_test
 
 import (
+	"caniuse/pkg/db"
 	"errors"
-	"ganaiuse/pkg/db"
 	"os"
 	"syscall"
 	"testing"
