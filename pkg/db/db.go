@@ -112,7 +112,7 @@ func DefaultDbPathname() string {
 	return path.Join(DefaultConfigDir(), "data.json")
 }
 
-func Init() (db Db, err error) {
+func Init() (db *Db, err error) {
 	if err = os.MkdirAll(DefaultConfigDir(), 0755); err != nil {
 		return
 	}
@@ -158,7 +158,11 @@ func (d Db) CheckForUpdate() (updated bool, err error) {
 	return
 }
 
-func load(dbPathname string) (db Db, err error) {
+func (d Db) IsDesktopBrowser(id BrowserId) bool {
+	return d.Browser[id].Type == "desktop"
+}
+
+func load(dbPathname string) (db *Db, err error) {
 	f, err := os.Open(dbPathname)
 	if err != nil {
 		return
