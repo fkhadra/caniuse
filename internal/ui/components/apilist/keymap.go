@@ -5,12 +5,13 @@ import (
 )
 
 type keyMap struct {
-	up          key.Binding
-	down        key.Binding
-	viewDetails key.Binding
-	clearFilter key.Binding
-	filter      key.Binding
-	quit        key.Binding
+	up                   key.Binding
+	down                 key.Binding
+	viewDetails          key.Binding
+	clearFilter          key.Binding
+	acceptWhileFiltering key.Binding
+	filter               key.Binding
+	quit                 key.Binding
 }
 
 func (k keyMap) ShortHelp() []key.Binding {
@@ -31,7 +32,7 @@ func (k keyMap) FullHelp() [][]key.Binding {
 	}
 }
 
-var k = keyMap{
+var keys = keyMap{
 	up: key.NewBinding(
 		key.WithKeys("up"),
 		key.WithHelp("↑", "move up"),
@@ -51,6 +52,10 @@ var k = keyMap{
 	clearFilter: key.NewBinding(
 		key.WithKeys("esc"),
 		key.WithHelp("esc", "clear filter"),
+	),
+	acceptWhileFiltering: key.NewBinding(
+		key.WithKeys("enter", "tab", "up", "down"),
+		key.WithHelp("enter", "apply filter"),
 	),
 	quit: key.NewBinding(
 		key.WithKeys("esc", "ctrl+c"),

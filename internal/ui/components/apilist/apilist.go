@@ -19,30 +19,23 @@ type Model struct {
 	searchInput  textinput.Model
 	supportTable supportable.Model
 	ctx          *context.AppContext
-	// display support table when not nil
-	apiDetails string
 }
 
 func New(ctx *context.AppContext) Model {
 	l := list.New(make([]list.Item, 0), item{}, 0, 0)
-	l.SetShowStatusBar(false)
 
-	l.SetShowHelp(true)
-	// l.DisableQuitKeybindings()
-	l.KeyMap.CursorUp = k.up
-	l.KeyMap.CursorDown = k.down
-	l.KeyMap.CancelWhileFiltering = k.clearFilter
+	l.SetStatusBarItemName("entry", "entries")
+	l.SetShowFilter(false)
+	l.SetShowTitle(false)
+	l.KeyMap.CursorUp = keys.up
+	l.KeyMap.CursorDown = keys.down
+	l.KeyMap.CancelWhileFiltering = keys.clearFilter
+	l.KeyMap.AcceptWhileFiltering = keys.acceptWhileFiltering
 	l.KeyMap.ShowFullHelp.Unbind()
 	l.KeyMap.PrevPage.SetKeys("left")
 	l.KeyMap.NextPage.SetKeys("right")
-	l.KeyMap.AcceptWhileFiltering = key.NewBinding(
-		key.WithKeys("enter", "tab", "up", "down"),
-	)
-	l.AdditionalShortHelpKeys = func() []key.Binding { return []key.Binding{k.viewDetails} }
-
+	l.AdditionalShortHelpKeys = func() []key.Binding { return []key.Binding{keys.viewDetails} }
 	l.Help.Styles.ShortKey = theme.HelpKey
-	l.SetShowFilter(false)
-	l.SetShowTitle(false)
 
 	ti := textinput.New()
 	ti.Placeholder = "..."
@@ -99,36 +92,48 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		cmds = append(cmds, m.handleKeyboard(msg))
 	}
 
-	m.list, cmd = m.list.Update(msg)
-	cmds = append(cmds, cmd)
+	if !m.supportTable.IsActive() {
+		m.list, cmd = m.list.Update(msg)
+		cmds = append(cmds, cmd)
+	} else {
+		m.supportTable, cmd = m.supportTable.Update(msg)
+		cmds = append(cmds, cmd)
+	}
 
 	return m, tea.Batch(cmds...)
 }
 
 func (m *Model) handleKeyboard(msg tea.KeyMsg) tea.Cmd {
 	var (
+		cmd         tea.Cmd
 		isFiltering = m.list.FilterState() == list.Filtering ||
 			m.list.FilterState() == list.FilterApplied
 	)
 
 	switch {
-	case key.Matches(msg, k.up, k.down):
+	case key.Matches(msg, keys.up, keys.down):
 		if isFiltering {
 			m.searchInput.Blur()
 			m.list.KeyMap.AcceptWhileFiltering.SetEnabled(true)
 		}
-	case key.Matches(msg, k.filter):
-		return m.searchInput.Focus()
-	case key.Matches(msg, k.clearFilter):
-		m.searchInput.SetValue("")
-		m.searchInput.Blur()
-	case key.Matches(msg, k.viewDetails):
-		if v, ok := m.list.SelectedItem().(item); ok {
-			m.apiDetails = v.id
+	case key.Matches(msg, keys.filter):
+		return tea.Batch(m.searchInput.Focus(), list.EnableLiveFiltering)
+	case key.Matches(msg, keys.clearFilter):
+		if !m.supportTable.IsActive() {
+			m.searchInput.SetValue("")
+			m.searchInput.Blur()
+		} else {
+			cmd = tea.Batch(m.searchInput.Focus(), list.EnableLiveFiltering)
+		}
+	case key.Matches(msg, keys.viewDetails):
+		if m.list.FilterState() == list.Filtering {
+			m.searchInput.Blur()
+		} else if v, ok := m.list.SelectedItem().(item); ok {
+			m.supportTable.SetApiId(v.id)
 		}
 	}
 
-	return nil
+	return cmd
 }
 
 func (m Model) View() string {
@@ -137,8 +142,8 @@ func (m Model) View() string {
 		body string
 	)
 
-	if m.apiDetails != "" {
-		body = m.supportTable.View(m.apiDetails)
+	if m.supportTable.IsActive() {
+		body = m.supportTable.View()
 	} else {
 		body = m.list.View()
 	}
@@ -146,7 +151,6 @@ func (m Model) View() string {
 	fmt.Fprintf(&s, "%s%s",
 		m.renderSearchInput(),
 		body,
-		// m.help.View(m.keyMap),
 	)
 
 	return s.String()
