@@ -66,8 +66,6 @@ func (m *Model) Init() tea.Cmd {
 		i++
 	}
 
-	m.list.SetSize(m.ctx.Screen.Width, m.ctx.Screen.Height-lipgloss.Height(m.renderSearchInput()))
-
 	return tea.Batch(
 		m.list.SetItems(items),
 		textinput.Blink,
@@ -88,6 +86,11 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.list.SetSize(
+			msg.Width,
+			msg.Height-lipgloss.Height(m.renderSearchInput())-style.body.GetVerticalPadding(),
+		)
 	case tea.KeyMsg:
 		cmds = append(cmds, m.handleKeyboard(msg))
 	}
@@ -150,7 +153,7 @@ func (m Model) View() string {
 
 	fmt.Fprintf(&s, "%s%s",
 		m.renderSearchInput(),
-		body,
+		style.body.Render(body),
 	)
 
 	return s.String()
@@ -171,6 +174,7 @@ func (m Model) renderSearchInput() string {
 var style = func() (s struct {
 	searchInput lipgloss.Style
 	center      lipgloss.Style
+	body        lipgloss.Style
 }) {
 	s.searchInput = lipgloss.NewStyle().
 		BorderForeground(theme.ColorMagenta).
@@ -181,6 +185,7 @@ var style = func() (s struct {
 		Padding(0, 2, 0, 2).
 		Align(lipgloss.Center)
 
+	s.body = lipgloss.NewStyle().Padding(2, 0)
 	s.center = lipgloss.NewStyle().Align(lipgloss.Center)
 
 	return s
