@@ -109,7 +109,7 @@ var itemStyle = func() (s struct {
 		Foreground(lipgloss.AdaptiveColor{Light: "#A49FA5", Dark: "#777777"})
 
 	s.filterMatch = lipgloss.NewStyle().
-		Underline(true)
+		Background(theme.ColorHighlight)
 
 	s.activeTitle = lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder(), false, false, false, true).
