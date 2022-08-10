@@ -22,7 +22,7 @@ type item struct {
 }
 
 func (i item) FilterValue() string                       { return i.title }
-func (i item) Height() int                               { return 3 }
+func (i item) Height() int                               { return 2 }
 func (i item) Spacing() int                              { return 1 }
 func (i item) Update(msg tea.Msg, m *list.Model) tea.Cmd { return nil }
 func (t item) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
