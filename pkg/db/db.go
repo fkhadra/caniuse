@@ -8,11 +8,10 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"sort"
 	"strings"
 	"syscall"
 )
-
-type BrowserId string
 
 type BrowserSupport [][2]string
 
@@ -80,10 +79,10 @@ type Api struct {
 		URL   string `json:"url"`
 		Title string `json:"title"`
 	} `json:"links"`
-	Categories []string                     `json:"categories"`
-	Support    map[BrowserId]BrowserSupport `json:"stats"`
-	Notes      map[string]string            `json:"notes_by_num"`
-	Usage      float64                      `json:"usage_perc_y"`
+	Categories []string                  `json:"categories"`
+	Support    map[string]BrowserSupport `json:"stats"`
+	Notes      map[string]string         `json:"notes_by_num"`
+	Usage      float64                   `json:"usage_perc_y"`
 }
 
 type BrowserInfo struct {
@@ -96,9 +95,10 @@ type BrowserInfo struct {
 }
 
 type Db struct {
-	Browser map[BrowserId]BrowserInfo `json:"agents"`
-	Api     map[string]Api            `json:"data"`
-	Updated int                       `json:"updated"`
+	Browser    map[string]BrowserInfo `json:"agents"`
+	Api        map[string]Api         `json:"data"`
+	Updated    int                    `json:"updated"`
+	browserIds []string
 }
 
 const Url = "https://raw.githubusercontent.com/Fyrd/caniuse/main/data.json"
@@ -134,6 +134,26 @@ func Init() (db *Db, err error) {
 	return db, nil
 }
 
+// used to iterate while keeping the order
+func (d *Db) BrowserIds() []string {
+	if d.browserIds != nil {
+		return d.browserIds
+	}
+
+	keys := make([]string, len(d.Browser))
+
+	i := 0
+	for id := range d.Browser {
+		keys[i] = id
+		i++
+	}
+
+	sort.Strings(keys)
+	d.browserIds = keys
+
+	return keys
+}
+
 func (d Db) CheckForUpdate() (updated bool, err error) {
 	dbPathname := path.Join(os.TempDir(), "caniuse.json")
 
@@ -158,7 +178,7 @@ func (d Db) CheckForUpdate() (updated bool, err error) {
 	return
 }
 
-func (d Db) IsDesktopBrowser(id BrowserId) bool {
+func (d Db) IsDesktopBrowser(id string) bool {
 	return d.Browser[id].Type == "desktop"
 }
 
