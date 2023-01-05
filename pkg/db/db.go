@@ -13,6 +13,42 @@ import (
 	"syscall"
 )
 
+type Api struct {
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Spec        string `json:"spec"`
+	Status      string `json:"status"`
+	Links       []struct {
+		URL   string `json:"url"`
+		Title string `json:"title"`
+	} `json:"links"`
+	Categories []string                  `json:"categories"`
+	Support    map[string]BrowserSupport `json:"stats"`
+	Notes      map[string]string         `json:"notes_by_num"`
+	Usage      float64                   `json:"usage_perc_y"`
+}
+
+type BrowserInfo struct {
+	Browser     string             `json:"browser"`
+	LongName    string             `json:"long_name"`
+	Abbr        string             `json:"abbr"`
+	Prefix      string             `json:"prefix"`
+	Type        string             `json:"type"`
+	UsageGlobal map[string]float64 `json:"usage_global"`
+}
+
+type Data struct {
+	Browser map[string]BrowserInfo `json:"agents"`
+	Api     map[string]Api         `json:"data"`
+	Updated int                    `json:"updated"`
+}
+
+type Db struct {
+	Data *Data
+
+	browserIds []string
+}
+
 type BrowserSupport [][2]string
 
 // aggregate data while unmarshalling
@@ -70,68 +106,38 @@ func (b *BrowserSupport) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-type Api struct {
-	Title       string `json:"title"`
-	Description string `json:"description"`
-	Spec        string `json:"spec"`
-	Status      string `json:"status"`
-	Links       []struct {
-		URL   string `json:"url"`
-		Title string `json:"title"`
-	} `json:"links"`
-	Categories []string                  `json:"categories"`
-	Support    map[string]BrowserSupport `json:"stats"`
-	Notes      map[string]string         `json:"notes_by_num"`
-	Usage      float64                   `json:"usage_perc_y"`
-}
-
-type BrowserInfo struct {
-	Browser     string             `json:"browser"`
-	LongName    string             `json:"long_name"`
-	Abbr        string             `json:"abbr"`
-	Prefix      string             `json:"prefix"`
-	Type        string             `json:"type"`
-	UsageGlobal map[string]float64 `json:"usage_global"`
-}
-
-type Db struct {
-	Browser    map[string]BrowserInfo `json:"agents"`
-	Api        map[string]Api         `json:"data"`
-	Updated    int                    `json:"updated"`
-	browserIds []string
-}
-
 const Url = "https://raw.githubusercontent.com/Fyrd/caniuse/main/data.json"
 
-func DefaultConfigDir() string {
-	homedir, _ := os.UserHomeDir()
-	return path.Join(homedir, ".config/caniuse")
-}
+var configDir = func() string {
+	dir, _ := os.UserHomeDir()
+	return path.Join(dir, ".config/caniuse")
+}()
 
-func DefaultDbPathname() string {
-	return path.Join(DefaultConfigDir(), "data.json")
-}
+var dataPathname = func() string {
+	return path.Join(configDir, "db.json")
+}()
 
 func Init() (db *Db, err error) {
-	if err = os.MkdirAll(DefaultConfigDir(), 0755); err != nil {
-		return
-	}
-
-	db, err = load(DefaultDbPathname())
+	db, err = load(dataPathname)
 
 	if err != nil && errors.Is(err, syscall.ENOENT) {
+
+		if err = os.MkdirAll(configDir, 0755); err != nil {
+			return
+		}
+
 		// db does not exist, let's get it
-		if err = download(DefaultDbPathname()); err != nil {
+		if err = Download(dataPathname); err != nil {
 			return
 		}
 		// load db again
-		if db, err = load(DefaultDbPathname()); err != nil {
+		if db, err = load(dataPathname); err != nil {
 			//something is really wrong
 			return
 		}
 	}
 
-	return db, nil
+	return
 }
 
 // used to iterate while keeping the order
@@ -140,10 +146,10 @@ func (d *Db) BrowserIds() []string {
 		return d.browserIds
 	}
 
-	keys := make([]string, len(d.Browser))
-
+	keys := make([]string, len(d.Data.Browser))
 	i := 0
-	for id := range d.Browser {
+
+	for id := range d.Data.Browser {
 		keys[i] = id
 		i++
 	}
@@ -154,32 +160,35 @@ func (d *Db) BrowserIds() []string {
 	return keys
 }
 
-func (d Db) CheckForUpdate() (updated bool, err error) {
+func (d *Db) CheckForUpdate() (updated bool, err error) {
 	dbPathname := path.Join(os.TempDir(), "caniuse.json")
 
-	if err = download(dbPathname); err != nil {
+	// best effort to remove dangling crap, hence no error handling 🙈
+	defer os.Remove(dbPathname)
+
+	if err = Download(dbPathname); err != nil {
 		return
 	}
 
-	maybeNewDb, err := load(dbPathname)
+	latestDb, err := load(dbPathname)
 	if err != nil {
 		return
 	}
 
-	if maybeNewDb.Updated > d.Updated {
-		if err = os.Rename(dbPathname, DefaultDbPathname()); err != nil {
+	if latestDb.Data.Updated > d.Data.Updated {
+		if err = os.Rename(dbPathname, dataPathname); err != nil {
 			return
 		}
+
+		d.Data = latestDb.Data
 		updated = true
-	} else {
-		os.Remove(dbPathname)
 	}
 
 	return
 }
 
 func (d Db) IsDesktopBrowser(id string) bool {
-	return d.Browser[id].Type == "desktop"
+	return d.Data.Browser[id].Type == "desktop"
 }
 
 func load(dbPathname string) (db *Db, err error) {
@@ -193,7 +202,13 @@ func load(dbPathname string) (db *Db, err error) {
 		return
 	}
 
-	err = json.Unmarshal(data, &db)
+	var d *Data
+
+	err = json.Unmarshal(data, d)
+	db = &Db{
+		Data: d,
+	}
+
 	if err != nil {
 		return
 	}
@@ -201,19 +216,19 @@ func load(dbPathname string) (db *Db, err error) {
 	return
 }
 
-func download(dbPathname string) error {
+func Download(dbPathname string) (err error) {
 	resp, err := http.Get(Url)
 	if err != nil {
-		return err
+		return
 	}
 	defer resp.Body.Close()
 
 	out, err := os.Create(dbPathname)
 	if err != nil {
-		return err
+		return
 	}
 	defer out.Close()
 
 	_, err = io.Copy(out, resp.Body)
-	return err
+	return
 }
