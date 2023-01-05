@@ -29,7 +29,7 @@ type Api struct {
 }
 
 type BrowserInfo struct {
-	Browser     string             `json:"browser"`
+	Name        string             `json:"browser"`
 	LongName    string             `json:"long_name"`
 	Abbr        string             `json:"abbr"`
 	Prefix      string             `json:"prefix"`
@@ -108,30 +108,30 @@ func (b *BrowserSupport) UnmarshalJSON(data []byte) error {
 
 const Url = "https://raw.githubusercontent.com/Fyrd/caniuse/main/data.json"
 
-var configDir = func() string {
+var Dir = func() string {
 	dir, _ := os.UserHomeDir()
 	return path.Join(dir, ".config/caniuse")
 }()
 
-var dataPathname = func() string {
-	return path.Join(configDir, "db.json")
+var Pathname = func() string {
+	return path.Join(Dir, "db.json")
 }()
 
 func Init() (db *Db, err error) {
-	db, err = load(dataPathname)
+	db, err = load(Pathname)
 
 	if err != nil && errors.Is(err, syscall.ENOENT) {
 
-		if err = os.MkdirAll(configDir, 0755); err != nil {
+		if err = os.MkdirAll(Dir, 0755); err != nil {
 			return
 		}
 
 		// db does not exist, let's get it
-		if err = Download(dataPathname); err != nil {
+		if err = Download(Pathname); err != nil {
 			return
 		}
 		// load db again
-		if db, err = load(dataPathname); err != nil {
+		if db, err = load(Pathname); err != nil {
 			//something is really wrong
 			return
 		}
@@ -176,7 +176,7 @@ func (d *Db) CheckForUpdate() (updated bool, err error) {
 	}
 
 	if latestDb.Data.Updated > d.Data.Updated {
-		if err = os.Rename(dbPathname, dataPathname); err != nil {
+		if err = os.Rename(dbPathname, Pathname); err != nil {
 			return
 		}
 
@@ -187,7 +187,7 @@ func (d *Db) CheckForUpdate() (updated bool, err error) {
 	return
 }
 
-func (d Db) IsDesktopBrowser(id string) bool {
+func (d *Db) IsDesktopBrowser(id string) bool {
 	return d.Data.Browser[id].Type == "desktop"
 }
 
@@ -197,20 +197,20 @@ func load(dbPathname string) (db *Db, err error) {
 		return
 	}
 
-	data, err := io.ReadAll(f)
+	b, err := io.ReadAll(f)
 	if err != nil {
 		return
 	}
 
-	var d *Data
+	var data Data
+	err = json.Unmarshal(b, &data)
 
-	err = json.Unmarshal(data, d)
+	if err != nil {
+		return
+	}
+
 	db = &Db{
-		Data: d,
-	}
-
-	if err != nil {
-		return
+		Data: &data,
 	}
 
 	return

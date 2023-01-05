@@ -11,12 +11,12 @@ import (
 )
 
 func removeConfigDir() {
-	os.RemoveAll(db.DefaultConfigDir())
+	os.RemoveAll(db.Dir)
 }
 
 func TestDownloadDatabaseIfNotExist(t *testing.T) {
 	removeConfigDir()
-	_, err := os.Stat(db.DefaultConfigDir())
+	_, err := os.Stat(db.Dir)
 
 	// ensure config is removed
 	assert.True(t, errors.Is(err, syscall.ENOENT))
@@ -30,7 +30,7 @@ func TestCheckForUpdate(t *testing.T) {
 	d, _ := db.Init()
 
 	// make current db old
-	d.Updated = 0
+	d.Data.Updated = 0
 
 	updated, err := d.CheckForUpdate()
 	assert.Nil(t, err)

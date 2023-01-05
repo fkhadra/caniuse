@@ -29,6 +29,6 @@ func Itoa(input int) string {
 		}
 		return s.String()
 	}
-	
+
 	return table[input]
 }
