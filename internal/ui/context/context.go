@@ -12,10 +12,7 @@ type AppContext struct {
 	}
 }
 
-func New() *AppContext {
-
-	return &AppContext{}
-}
+func New() *AppContext { return &AppContext{} }
 
 func (c *AppContext) SetDb(db *db.Db) {
 	c.Db = db
