@@ -44,7 +44,8 @@ type Data struct {
 }
 
 type Db struct {
-	Data *Data
+	Data     *Data
+	IsLatest bool
 
 	browserIds []string
 }
@@ -135,6 +136,8 @@ func Init() (db *Db, err error) {
 			//something is really wrong
 			return
 		}
+		
+		db.IsLatest = true
 	}
 
 	return
