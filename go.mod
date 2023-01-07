@@ -7,10 +7,10 @@ require (
 	github.com/charmbracelet/bubbletea v0.23.1
 	github.com/charmbracelet/lipgloss v0.6.0
 	github.com/muesli/reflow v0.3.0
-	github.com/savioxavier/termlink v1.2.1
 	github.com/stretchr/testify v1.8.1
 )
 
+// Until https://github.com/charmbracelet/bubbles/pull/201 is merged
 replace github.com/charmbracelet/bubbles => /Users/gugu/oss/bubbles
 
 require (
@@ -18,7 +18,6 @@ require (
 	github.com/aymanbagabas/go-osc52 v1.0.3 // indirect
 	github.com/containerd/console v1.0.3 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/jwalton/go-supportscolor v1.1.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/mattn/go-isatty v0.0.17 // indirect
 	github.com/mattn/go-localereader v0.0.1 // indirect
