@@ -24,14 +24,6 @@ func (k keyMap) ShortHelp() []key.Binding {
 	}
 }
 
-// unused for now
-func (k keyMap) FullHelp() [][]key.Binding {
-	return [][]key.Binding{
-		{}, // first column
-		{}, // second column
-	}
-}
-
 var keys = keyMap{
 	up: key.NewBinding(
 		key.WithKeys("up"),

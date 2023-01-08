@@ -45,10 +45,8 @@ func (t item) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
 	desc = strings.Join(lines, "\n")
 
 	var (
-		isSelected = index == m.Index()
-		// emptyFilter = m.FilterState() == list.Filtering && m.FilterValue() == ""
-		isFiltered = m.FilterState() == list.Filtering || m.FilterState() == list.FilterApplied
-
+		isSelected   = index == m.Index()
+		isFiltered   = m.FilterState() == list.Filtering || m.FilterState() == list.FilterApplied
 		matchedRunes = m.MatchesForItem(index)
 		title        = el.title
 	)
@@ -74,24 +72,9 @@ func (t item) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
 
 	fmt.Fprintf(w, "%s%s\n%s",
 		itemStyle.title.Render(title),
-		renderUsage(el.usage),
+		theme.RenderBrowserSupport(el.usage),
 		itemStyle.description.Render(desc),
 	)
-}
-
-func renderUsage(u float64) string {
-	var color lipgloss.Style
-	if u >= 0 && u <= 25 {
-		color = theme.BadgeError
-	} else if u >= 26 && u <= 75 {
-		color = theme.BadgeWarning
-	} else {
-		color = theme.BadgeSuccess
-	}
-
-	return fmt.Sprintf("%s%s",
-		theme.BadgeNeutral.Render("Browser support"),
-		color.Render(fmt.Sprintf("%.2f%%", u)))
 }
 
 var itemStyle = func() (s struct {

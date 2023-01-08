@@ -5,6 +5,7 @@ import (
 	"caniuse/internal/ui/components/supportable"
 	"caniuse/internal/ui/context"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -23,7 +24,6 @@ type Model struct {
 
 func New(ctx *context.AppContext) Model {
 	l := list.New(make([]list.Item, 0), item{}, 0, 0)
-
 	l.SetStatusBarItemName("entry", "entries")
 	l.SetShowFilter(false)
 	l.SetShowTitle(false)
@@ -43,6 +43,12 @@ func New(ctx *context.AppContext) Model {
 	ti.CharLimit = 20
 	ti.CursorStyle = lipgloss.NewStyle().Foreground(theme.ColorHighlight)
 
+	if len(os.Args) > 1 {
+		filter := strings.Join(os.Args[1:], " ")
+		l.SetFilterValue(filter)
+		ti.SetValue(filter)
+	}
+
 	return Model{
 		list:         l,
 		searchInput:  ti,
@@ -52,10 +58,10 @@ func New(ctx *context.AppContext) Model {
 }
 
 func (m *Model) Init() tea.Cmd {
-	items := make([]list.Item, len(m.ctx.Db.Api))
+	items := make([]list.Item, len(m.ctx.Db.Data.Api))
 
 	i := 0
-	for id, v := range m.ctx.Db.Api {
+	for id, v := range m.ctx.Db.Data.Api {
 		items[i] = item{
 			id:          id,
 			title:       v.Title,
@@ -87,10 +93,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.list.SetSize(
-			msg.Width,
-			msg.Height-lipgloss.Height(m.renderSearchInput())-style.body.GetVerticalPadding(),
-		)
+		m.handleWindowResize(msg)
 	case tea.KeyMsg:
 		cmds = append(cmds, m.handleKeyboard(msg))
 	}
@@ -106,11 +109,24 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
+func (m *Model) handleWindowResize(msg tea.WindowSizeMsg) {
+	m.list.SetSize(
+		msg.Width,
+		msg.Height-lipgloss.Height(m.renderSearchInput())-style.body.GetVerticalPadding(),
+	)
+
+	if msg.Width > inputMinWidth {
+		style.searchInput.Width(inputMinWidth)
+	} else {
+		// prevent the cli form crashing if not enough width to render the input
+		style.searchInput.UnsetWidth()
+	}
+}
+
 func (m *Model) handleKeyboard(msg tea.KeyMsg) tea.Cmd {
 	var (
 		cmd         tea.Cmd
-		isFiltering = m.list.FilterState() == list.Filtering ||
-			m.list.FilterState() == list.FilterApplied
+		isFiltering = m.list.FilterState() == list.Filtering || m.list.FilterState() == list.FilterApplied
 	)
 
 	switch {
@@ -140,21 +156,15 @@ func (m *Model) handleKeyboard(msg tea.KeyMsg) tea.Cmd {
 }
 
 func (m Model) View() string {
-	var (
-		s    strings.Builder
-		body string
-	)
+	var s strings.Builder
+
+	s.WriteString(m.renderSearchInput())
 
 	if m.supportTable.IsActive() {
-		body = m.supportTable.View()
+		s.WriteString(m.supportTable.View())
 	} else {
-		body = m.list.View()
+		s.WriteString(m.list.View())
 	}
-
-	fmt.Fprintf(&s, "%s%s",
-		m.renderSearchInput(),
-		style.body.Render(body),
-	)
 
 	return s.String()
 }
@@ -171,6 +181,8 @@ func (m Model) renderSearchInput() string {
 	return fmt.Sprintf("%s\n\n", style.center.Width(m.ctx.Screen.Width).Render(input))
 }
 
+const inputMinWidth = 80
+
 var style = func() (s struct {
 	searchInput lipgloss.Style
 	center      lipgloss.Style
@@ -179,7 +191,6 @@ var style = func() (s struct {
 	s.searchInput = lipgloss.NewStyle().
 		BorderForeground(theme.ColorMagenta).
 		BorderStyle(lipgloss.RoundedBorder()).
-		Width(80).
 		Height(3).
 		Margin(1).
 		Padding(0, 2, 0, 2).

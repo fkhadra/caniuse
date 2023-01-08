@@ -2,9 +2,11 @@ package supportable
 
 import (
 	"caniuse/internal/theme"
+	"caniuse/internal/ui/components/tab"
 	"caniuse/internal/ui/context"
 	"caniuse/pkg/superscript"
 	"fmt"
+	"io"
 	"regexp"
 	"strconv"
 	"strings"
@@ -17,9 +19,10 @@ import (
 )
 
 type Model struct {
-	apiId   string
-	help    help.Model
-	context *context.AppContext
+	apiId string
+	help  help.Model
+	ctx   *context.AppContext
+	tab   tab.Model
 }
 
 // used to parse notes
@@ -30,8 +33,9 @@ func New(ctx *context.AppContext) Model {
 	h.Styles.ShortKey = theme.HelpKey
 
 	return Model{
-		help:    h,
-		context: ctx,
+		help: h,
+		ctx:  ctx,
+		tab:  tab.New([]string{"Notes", "Resources"}),
 	}
 }
 
@@ -39,7 +43,7 @@ func (m *Model) SetApiId(id string) {
 	m.apiId = id
 }
 
-func (m Model) IsActive() bool {
+func (m *Model) IsActive() bool {
 	return m.apiId != ""
 }
 
@@ -53,10 +57,18 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		switch {
 		case key.Matches(msg, keys.goBack):
 			m.clearApiId()
+		case key.Matches(msg, keys.switchTab):
+			m.tab.NextTab()
 		}
 	}
+
 	return m, nil
 }
+
+const (
+	noteTab = iota
+	resourceTab
+)
 
 func (m Model) View() string {
 	var (
@@ -64,18 +76,19 @@ func (m Model) View() string {
 		desktopColumns []string
 		mobileColumns  []string
 	)
-	apiData := m.context.Db.Api[m.apiId]
+	api := m.ctx.Db.Data.Api[m.apiId]
 
-	fmt.Fprintf(&s, "%s\n\n%s\n\n",
-		style.title.Render(apiData.Title),
-		wrap.String(apiData.Description, m.context.Screen.Width-style.body.GetHorizontalPadding()),
+	fmt.Fprintf(&s, "%s %s\n\n%s\n\n",
+		style.title.Render(api.Title),
+		theme.RenderBrowserSupport(api.Usage),
+		style.description.Render(wrap.String(api.Description, m.ctx.Screen.Width-style.body.GetHorizontalPadding())),
 	)
 
-	for _, id := range m.context.Db.BrowserIds() {
+	// building support table
+	for _, id := range m.ctx.Db.BrowserIds() {
 		var column strings.Builder
-		isDesktop := m.context.Db.IsDesktopBrowser(id)
-
-		browserName := style.browserName.Render(m.context.Db.Browser[id].Browser)
+		isDesktop := m.ctx.Db.IsDesktopBrowser(id)
+		browserName := style.browserName.Render(m.ctx.Db.Data.Browser[id].Name)
 
 		fmt.Fprintf(&column, "%s\n", browserName)
 
@@ -83,20 +96,22 @@ func (m Model) View() string {
 			column.WriteString("\n")
 		}
 
-		for _, supp := range apiData.Support[id] {
-			version, support := supp[0], supp[1]
+		for _, v := range api.Support[id] {
+			version, supported := v[0], v[1]
 
-			if support == "y" {
+			if supported == "y" {
 				column.WriteString(style.supported.Render(version))
-			} else if support == "n" {
+			} else if supported == "n" {
 				column.WriteString(style.notSupported.Render(version))
 			} else {
+				// convert notes to superscript equivalent
 				var notes strings.Builder
-				for _, match := range reNotes.FindAllStringSubmatch(support, -1) {
+				for _, match := range reNotes.FindAllStringSubmatch(supported, -1) {
 					n, _ := strconv.Atoi(match[1])
 					notes.WriteString(superscript.Itoa(n))
 				}
 				column.WriteString(style.partial.Render(version + notes.String()))
+
 			}
 
 			column.WriteString(" \n")
@@ -109,21 +124,46 @@ func (m Model) View() string {
 		}
 	}
 
-	fmt.Fprintf(&s, "%s\n\n%s\n\n\n%s\n\n%s\n\n%s",
+	fmt.Fprintf(&s, "%s\n\n%s\n\n\n%s\n\n%s\n\n",
 		theme.BadgeInfo.Render("Desktop"),
 		lipgloss.JoinHorizontal(lipgloss.Top, desktopColumns...),
 		theme.BadgeInfo.Render("Mobile"),
 		lipgloss.JoinHorizontal(lipgloss.Top, mobileColumns...),
-		m.help.View(keys),
 	)
 
+	s.WriteString(m.tab.View(m.ctx.Screen.Width))
+
+	switch m.tab.ActiveTab() {
+	case noteTab:
+		for i := 1; i < len(api.Notes); i++ {
+			k := strconv.Itoa(i)
+			v := api.Notes[k]
+			fmt.Fprintf(&s, "%s %s\n", theme.BadgeNeutral.Render(k), v)
+		}
+	case resourceTab:
+		renderLink(&s, "Specification", api.Spec)
+		for _, v := range api.Links {
+			renderLink(&s, v.Title, v.URL)
+		}
+	}
+	s.WriteString("\n")
+	s.WriteString(m.help.View(keys))
+
 	return style.body.Render(s.String())
+}
+
+func renderLink(w io.Writer, title string, link string) {
+	fmt.Fprintf(w, "• %s %s\n",
+		title,
+		lipgloss.NewStyle().Foreground(theme.ColorNeutral).Render(link),
+	)
 }
 
 type stylesheet struct {
 	body         lipgloss.Style
 	browserName  lipgloss.Style
 	title        lipgloss.Style
+	description  lipgloss.Style
 	supported    lipgloss.Style
 	partial      lipgloss.Style
 	notSupported lipgloss.Style
@@ -136,7 +176,8 @@ var style = func() (s stylesheet) {
 		Align(lipgloss.Center)
 
 	s.body = lipgloss.NewStyle().Padding(0, 2, 0, 2)
-	s.title = theme.Bold.Copy().Underline(true)
+	s.title = theme.Bold.Copy()
+	s.description = theme.Text.Copy().Foreground(theme.ColorNeutral)
 	s.supported = baseBadge.Copy().Inherit(theme.BadgeSuccess)
 	s.partial = baseBadge.Copy().Inherit(theme.BadgeWarning)
 	s.notSupported = baseBadge.Copy().Inherit(theme.BadgeError)
