@@ -14,7 +14,7 @@ var (
 
 	Bold = lipgloss.NewStyle().Bold(true)
 
-	Text           = lipgloss.NewStyle().Bold(true)
+	Text           = lipgloss.NewStyle()
 	TextInfo       = Text.Copy().Foreground(ColorInfo)
 	TextWarning    = Text.Copy().Foreground(ColorWarning)
 	TextError      = Text.Copy().Foreground(ColorError)
