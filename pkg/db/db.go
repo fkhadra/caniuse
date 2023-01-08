@@ -7,10 +7,12 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"path"
+	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"syscall"
+	"time"
 )
 
 type Api struct {
@@ -44,9 +46,7 @@ type Data struct {
 }
 
 type Db struct {
-	Data     *Data
-	IsLatest bool
-
+	Data       *Data
 	browserIds []string
 }
 
@@ -107,40 +107,59 @@ func (b *BrowserSupport) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-const Url = "https://raw.githubusercontent.com/Fyrd/caniuse/main/data.json"
+const (
+	Url                   = "https://raw.githubusercontent.com/Fyrd/caniuse/main/data.json"
+	UpdateFrequencyInDays = 15
+)
 
 var Dir = func() string {
 	dir, _ := os.UserHomeDir()
-	return path.Join(dir, ".config/caniuse")
+	return filepath.Join(dir, ".caniuse")
 }()
 
 var Pathname = func() string {
-	return path.Join(Dir, "db.json")
+	return filepath.Join(Dir, "db.json")
+}()
+
+// store latest update
+var update = func() string {
+	return filepath.Join(Dir, "updated")
 }()
 
 func Init() (db *Db, err error) {
 	db, err = load(Pathname)
 
 	if err != nil && errors.Is(err, syscall.ENOENT) {
-
 		if err = os.MkdirAll(Dir, 0755); err != nil {
 			return
 		}
 
 		// db does not exist, let's get it
-		if err = Download(Pathname); err != nil {
+		if err = download(Pathname); err != nil {
 			return
 		}
+
 		// load db again
 		if db, err = load(Pathname); err != nil {
 			//something is really wrong
 			return
 		}
-		
-		db.IsLatest = true
+
+		// used to check for upgrade
+		if err = saveLatestUpdate(); err != nil {
+			return
+		}
 	}
 
 	return
+}
+
+func saveLatestUpdate() error {
+	return os.WriteFile(
+		update,
+		[]byte(fmt.Sprintf("%d", time.Now().Unix())),
+		0755,
+	)
 }
 
 // used to iterate while keeping the order
@@ -163,13 +182,26 @@ func (d *Db) BrowserIds() []string {
 	return keys
 }
 
-func (d *Db) CheckForUpdate() (updated bool, err error) {
-	dbPathname := path.Join(os.TempDir(), "caniuse.json")
+func (d *Db) ShouldCheckForUpdate() bool {
+	data, err := os.ReadFile(update)
+	if err != nil {
+		return false
+	}
+
+	i, _ := strconv.ParseInt(string(data), 10, 64)
+	latestUpdate := time.Unix(i, 0)
+	elapsedDays := time.Since(latestUpdate).Hours() / 24
+
+	return elapsedDays >= UpdateFrequencyInDays
+}
+
+func (d *Db) CheckForUpdate() (err error) {
+	dbPathname := filepath.Join(os.TempDir(), "caniuse.json")
 
 	// best effort to remove dangling crap, hence no error handling 🙈
 	defer os.Remove(dbPathname)
 
-	if err = Download(dbPathname); err != nil {
+	if err = download(dbPathname); err != nil {
 		return
 	}
 
@@ -184,7 +216,10 @@ func (d *Db) CheckForUpdate() (updated bool, err error) {
 		}
 
 		d.Data = latestDb.Data
-		updated = true
+	}
+
+	if err = saveLatestUpdate(); err != nil {
+		return
 	}
 
 	return
@@ -219,7 +254,7 @@ func load(dbPathname string) (db *Db, err error) {
 	return
 }
 
-func Download(dbPathname string) (err error) {
+func download(dbPathname string) (err error) {
 	resp, err := http.Get(Url)
 	if err != nil {
 		return

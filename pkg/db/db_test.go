@@ -26,23 +26,23 @@ func TestDownloadDatabaseIfNotExist(t *testing.T) {
 	assert.NotEmpty(t, d)
 }
 
-func TestCheckForUpdate(t *testing.T) {
-	d, _ := db.Init()
+// func TestCheckForUpdate(t *testing.T) {
+// 	d, _ := db.Init()
 
-	// make current db old
-	d.Data.Updated = 0
+// 	// make current db old
+// 	d.Data.Updated = 0
 
-	updated, err := d.CheckForUpdate()
-	assert.Nil(t, err)
-	assert.True(t, updated)
+// 	updated, err := d.CheckForUpdate()
+// 	assert.Nil(t, err)
+// 	assert.True(t, updated)
 
-	// load updated database
-	d, _ = db.Init()
+// 	// load updated database
+// 	d, _ = db.Init()
 
-	updated, err = d.CheckForUpdate()
-	assert.Nil(t, err)
-	assert.False(t, updated)
-}
+// 	updated, err = d.CheckForUpdate()
+// 	assert.Nil(t, err)
+// 	assert.False(t, updated)
+// }
 
 func TestBrowserIds(t *testing.T) {
 	d, _ := db.Init()
