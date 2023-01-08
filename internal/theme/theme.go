@@ -1,6 +1,10 @@
 package theme
 
-import "github.com/charmbracelet/lipgloss"
+import (
+	"fmt"
+
+	"github.com/charmbracelet/lipgloss"
+)
 
 var (
 	ColorError     = lipgloss.AdaptiveColor{Light: "#F23D5C", Dark: "#F23D5C"}
@@ -35,3 +39,18 @@ var (
 		Bold(true).
 		Foreground(ColorInfo)
 )
+
+func RenderBrowserSupport(u float64) string {
+	var color lipgloss.Style
+	if u >= 0 && u <= 25 {
+		color = BadgeError
+	} else if u >= 26 && u <= 75 {
+		color = BadgeWarning
+	} else {
+		color = BadgeSuccess
+	}
+
+	return fmt.Sprintf("%s%s",
+		BadgeNeutral.Render("Browser support"),
+		color.Render(fmt.Sprintf("%.2f%%", u)))
+}
