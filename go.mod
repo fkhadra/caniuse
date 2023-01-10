@@ -11,7 +11,7 @@ require (
 )
 
 // Until https://github.com/charmbracelet/bubbles/pull/201 is merged
-replace github.com/charmbracelet/bubbles => /Users/gugu/oss/bubbles
+replace github.com/charmbracelet/bubbles => github.com/fkhadra/bubbles v0.0.1
 
 require (
 	github.com/atotto/clipboard v0.1.4 // indirect
