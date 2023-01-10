@@ -59,6 +59,6 @@ brews:
   -
     tap:
       owner: fkhadra
-      name: homebrew-caniuse
+      name: homebrew-cli
     homepage: 'https://github.com/fkhadra/caniuse/'
     description: 'Beautiful TUI for caniuse'

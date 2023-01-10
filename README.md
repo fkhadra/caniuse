@@ -29,7 +29,7 @@ For Windows, Mac OS or Linux, you can download a binary release [here](https://g
 ### Homebrew
 
 ```sh
-brew install fkhadra/caniuse/caniuse
+brew install fkhadra/cli/caniuse
 ```
 
 ## Usage
