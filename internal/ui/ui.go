@@ -104,6 +104,9 @@ func (m Model) View() string {
 		}
 
 		fmt.Fprintf(&s, "%s\n%s %s", m.apilist.Placeholder(), m.spinner.View(), msg)
+
+		// fill remaining space so we take up all the screen
+		s.WriteString(lipgloss.NewStyle().Height(m.ctx.Screen.Height - lipgloss.Height(s.String())).Render(""))
 	} else {
 		s.WriteString(m.apilist.View())
 	}
