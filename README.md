@@ -14,6 +14,12 @@ A beautiful TUI for [caniuse](https://caniuse.com).
 <img width="1792" alt="support" src="https://user-images.githubusercontent.com/5574267/211595108-da6e0a4f-0a27-4afc-b7eb-c8cfd434cd67.png">
 
 
+## Features
+
+- Beautiful by default 💅 
+- Work offline 🛫
+- Self-update 🚀
+
 ## Installation
 
 ### Binary releases
